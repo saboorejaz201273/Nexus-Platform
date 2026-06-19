@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const { meetingValidation } = require('../middleware/validators');
 const {
   scheduleMeeting,
   getMyMeetings,
@@ -9,7 +11,7 @@ const {
   cancelMeeting
 } = require('../controllers/meetingController');
 
-router.post('/', auth, scheduleMeeting);
+router.post('/', auth, meetingValidation, validate, scheduleMeeting);
 router.get('/', auth, getMyMeetings);
 router.put('/:id/accept', auth, acceptMeeting);
 router.put('/:id/reject', auth, rejectMeeting);

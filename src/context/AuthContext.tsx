@@ -1,9 +1,17 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, UserRole, AuthContextType } from '../types';
 import toast from 'react-hot-toast';
-import { loginUser, registerUser, updateProfile as updateProfileAPI } from '../api.ts';
+import { loginUser, registerUser, updateProfile as updateProfileAPI, sendOTP, verifyOTP } from '../api.ts';
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+interface ExtendedAuthContextType extends AuthContextType {
+  pendingOTP: boolean;
+  pendingEmail: string;
+  confirmOTP: (otp: string) => Promise<void>;
+  resendOTP: () => Promise<void>;
+  cancelOTP: () => void;
+}
+
+const AuthContext = createContext<ExtendedAuthContextType | undefined>(undefined);
 
 const USER_STORAGE_KEY = 'business_nexus_user';
 const TOKEN_KEY = 'token';
@@ -11,6 +19,12 @@ const TOKEN_KEY = 'token';
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // 2FA state
+  const [pendingOTP, setPendingOTP] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [pendingUserData, setPendingUserData] = useState<any>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem(USER_STORAGE_KEY);
@@ -26,10 +40,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await loginUser({ email, password, role });
       const { token, user: userData } = res.data;
 
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-      setUser(userData);
-      toast.success('Successfully logged in!');
+      // Don't log in immediately - require OTP verification first
+      setPendingToken(token);
+      setPendingUserData(userData);
+      setPendingEmail(email);
+
+      await sendOTP(email);
+      setPendingOTP(true);
+      toast.success('OTP sent! Check the backend console for your code.');
     } catch (error: any) {
       const msg = error.response?.data?.message || 'Login failed';
       toast.error(msg);
@@ -37,6 +55,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const confirmOTP = async (otp: string): Promise<void> => {
+    setIsLoading(true);
+    try {
+      await verifyOTP(pendingEmail, otp);
+
+      // OTP verified - now actually complete login
+      if (pendingToken && pendingUserData) {
+        localStorage.setItem(TOKEN_KEY, pendingToken);
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(pendingUserData));
+        setUser(pendingUserData);
+      }
+
+      setPendingOTP(false);
+      setPendingToken(null);
+      setPendingUserData(null);
+      setPendingEmail('');
+      toast.success('Successfully logged in!');
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Invalid OTP';
+      toast.error(msg);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendOTP = async (): Promise<void> => {
+    try {
+      await sendOTP(pendingEmail);
+      toast.success('New OTP sent! Check the backend console.');
+    } catch (error: any) {
+      toast.error('Failed to resend OTP');
+    }
+  };
+
+  const cancelOTP = (): void => {
+    setPendingOTP(false);
+    setPendingToken(null);
+    setPendingUserData(null);
+    setPendingEmail('');
   };
 
   const register = async (name: string, email: string, password: string, role: UserRole): Promise<void> => {
@@ -99,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const value: AuthContextType = {
+  const value: ExtendedAuthContextType = {
     user,
     login,
     register,
@@ -108,13 +168,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
     updateProfile,
     isAuthenticated: !!user,
-    isLoading
+    isLoading,
+    pendingOTP,
+    pendingEmail,
+    confirmOTP,
+    resendOTP,
+    cancelOTP,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = (): AuthContextType => {
+export const useAuth = (): ExtendedAuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

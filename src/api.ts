@@ -34,3 +34,12 @@ export const signDocument = (id: string, signature: string) =>
 export const deleteDocument = (id: string) => API.delete(`/api/documents/${id}`);
 export const updateDocumentStatus = (id: string, status: string) => 
   API.put(`/api/documents/${id}/status`, { status });
+// Transactions
+export const depositMoney = (data: Record<string, any>) => API.post('/api/transactions/deposit', data);
+export const withdrawMoney = (data: Record<string, any>) => API.post('/api/transactions/withdraw', data);
+export const transferMoney = (data: Record<string, any>) => API.post('/api/transactions/transfer', data);
+export const getTransactions = () => API.get('/api/transactions');
+export const getBalance = () => API.get('/api/transactions/balance');
+// 2FA / OTP
+export const sendOTP = (email: string) => API.post('/api/otp/send', { email });
+export const verifyOTP = (email: string, otp: string) => API.post('/api/otp/verify', { email, otp });

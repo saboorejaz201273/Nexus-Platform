@@ -31,6 +31,7 @@ import { DealsPage } from './pages/deals/DealsPage';
 import { ChatPage } from './pages/chat/ChatPage';
 import { MeetingsPage } from './pages/meetings/MeetingsPage';
 import { VideoCallPage } from './pages/meetings/VideoCallPage';
+import { PaymentsPage } from './pages/payments/PaymentsPage';
 function App() {
   return (
     <AuthProvider>
@@ -88,6 +89,9 @@ function App() {
           <Route path="/meetings" element={<DashboardLayout />}>
             <Route index element={<MeetingsPage />} />
           </Route>
+          <Route path="/payments" element={<DashboardLayout />}>
+  <Route index element={<PaymentsPage />} />
+</Route>
           {/* Video Call Routes */}
           <Route path="/call/:roomId" element={<DashboardLayout />}>
             <Route index element={<VideoCallPage />} />
