@@ -1,27 +1,11 @@
-const nodemailer = require('nodemailer');
-const dns = require('dns');
+const { Resend } = require('resend');
 
-// Force IPv4 lookups (fixes Railway IPv6 ENETUNREACH issue with Gmail SMTP)
-dns.setDefaultResultOrder('ipv4first');
-
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  family: 4,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 15000
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sendOTPEmail = async (email, otp) => {
   try {
-    await transporter.sendMail({
-      from: `"Nexus" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: 'Nexus <onboarding@resend.dev>',
       to: email,
       subject: 'Your Nexus OTP Code',
       html: `
